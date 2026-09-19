@@ -2,13 +2,13 @@
 "${LIB_DIR}/ImGui/*.cpp" "${LIB_DIR}/ImGui/*.h" "${LIB_DIR}/imgui-node-editor-master/*.h" "${LIB_DIR}/imgui-node-editor-master/*.cpp")
 
 
-add_executable (Axio ${SOURCES})
+add_executable (Axio ${SOURCES} "NodeEditor.h")
 
 add_library(GLFW STATIC IMPORTED)
 set_target_properties(GLFW PROPERTIES IMPORTED_LOCATION  "${LIB_DIR}/glfw-3.4/lib-vc-2022/glfw3.lib" )
 target_include_directories(GLFW INTERFACE "${LIB_DIR}/glfw-3.4/include")
 
-add_library(GLAD "${LIB_DIR}/OpenGL/src/glad.c")
+add_library(GLAD "${LIB_DIR}/OpenGL/src/glad.c" "NodeEditor.h")
 target_include_directories(GLAD PUBLIC "${LIB_DIR}/OpenGL/include")
 
 target_include_directories(Axio PRIVATE

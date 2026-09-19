@@ -3,6 +3,12 @@
 #
 cmake_minimum_required (VERSION 3.10)
 
+
+set(SRC_DIR ${CMAKE_SOURCE_DIR}/Axio)
+set(LIB_DIR ${CMAKE_SOURCE_DIR}/libs)
+set(SHDR_DIR ${SRC_DIR}/shaders)
+
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)

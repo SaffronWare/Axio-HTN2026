@@ -1,4 +1,8 @@
-﻿add_executable (Axio "Main.cpp" "Application.h" "Application.cpp")
+﻿file(GLOB SOURCES "Main.cpp" "Application.h" "Application.cpp" "${LIB_DIR}/ImGui/backends/*.h" "${LIB_DIR}/ImGui/backends/*.cpp" 
+"${LIB_DIR}/ImGui/*.cpp" "${LIB_DIR}/ImGui/*.h")
+
+
+add_executable (Axio ${SOURCES})
 
 add_library(GLFW STATIC IMPORTED)
 set_target_properties(GLFW PROPERTIES IMPORTED_LOCATION  "${LIB_DIR}/glfw-3.4/lib-vc-2022/glfw3.lib" )

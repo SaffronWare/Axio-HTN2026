@@ -1,12 +1,8 @@
-﻿// Axio.cpp : Defines the entry point for the application.
-//
+﻿#include <glad/glad.h>
+#include <glfw3.h>
 
-#include "Axio.h"
-
-using namespace std;
 
 int main()
 {
-	cout << "Hello CMake." << endl;
 	return 0;
 }

@@ -44,6 +44,9 @@ void Application::InitGlfw() {
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+	//glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WIN32);
+	//glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+	glfwWindowHint(GLFW_SAMPLES, 4);
 
 	window = glfwCreateWindow(3 * 640, 3 * 480, "Axio", NULL, NULL);
 	if (!window)
@@ -63,6 +66,7 @@ void Application::InitGlfw() {
 		glfwTerminate();
 
 	}
+	glEnable(GL_MULTISAMPLE);
 
 	glViewport(0, 0, 3 * 640,  3 * 480);
 }
@@ -78,11 +82,22 @@ void Application::InitImGui()
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
+	io.Fonts->AddFontFromFileTTF(
+		"C:/Windows/Fonts/segoeui.ttf",
+		20.0f
+	);
+
 	ImGui::StyleColorsDark();
 
 
 	// Setup scaling
 	ImGuiStyle& style = ImGui::GetStyle();
+	style.AntiAliasedLines = true;
+	style.AntiAliasedLinesUseTex = true;
+	style.AntiAliasedFill = true;
+
+	style.FrameRounding = 10.0f;
+	style.TabRounding = 10.0f;
 
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init();
@@ -108,6 +123,7 @@ void Application::Draw()
 
 	DrawViewport();
 	DrawNodeEditor();
+	DrawNodeCatalogue();
 
 	ImGui::Render();
 
@@ -153,4 +169,9 @@ void Application::DrawNodeEditor()
 
 		ImGui::End();
 	}
+}
+
+void Application::DrawNodeCatalogue()
+{
+
 }

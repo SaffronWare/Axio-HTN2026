@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 
+
 struct Application
 {
 private:
@@ -27,4 +28,5 @@ public:
 	void Draw();
 	void DrawViewport();
 	void DrawNodeEditor();
+	void DrawNodeCatalogue();
 };

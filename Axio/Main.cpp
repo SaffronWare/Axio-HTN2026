@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#include <imgui_node_editor.h>
 
 #include <stdexcept>
 
@@ -71,18 +72,20 @@ int main()
 
 		ImGui::DockSpaceOverViewport();
 
-		ImGui::BeginMainMenuBar();
-
-		ImGui::EndMainMenuBar();
-
+		if (ImGui::BeginMainMenuBar())
 		{
-			ImGui::Begin("Test...");
+
+			ImGui::EndMainMenuBar();
+		}
+
+
+		if (ImGui::Begin("Node Editor")) {
 
 			ImGui::End();
 		}
 
-		{
-			ImGui::Begin("Viewport");
+		
+		if (ImGui::Begin("Viewport")) {
 			ImGui::End();
 		}
 

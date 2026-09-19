@@ -1,5 +1,5 @@
 ﻿file(GLOB SOURCES "Main.cpp" "Application.h" "Application.cpp" "${LIB_DIR}/ImGui/backends/*.h" "${LIB_DIR}/ImGui/backends/*.cpp" 
-"${LIB_DIR}/ImGui/*.cpp" "${LIB_DIR}/ImGui/*.h")
+"${LIB_DIR}/ImGui/*.cpp" "${LIB_DIR}/ImGui/*.h" "${LIB_DIR}/imgui-node-editor-master/*.h" "${LIB_DIR}/imgui-node-editor-master/*.cpp")
 
 
 add_executable (Axio ${SOURCES})
@@ -14,6 +14,7 @@ target_include_directories(GLAD PUBLIC "${LIB_DIR}/OpenGL/include")
 target_include_directories(Axio PRIVATE
     "${LIB_DIR}/ImGui"         
     "${LIB_DIR}/ImGui/backends"
+    "${LIB_DIR}/imgui-node-editor-master"
 )
 
 target_link_libraries(Axio PUBLIC GLAD)

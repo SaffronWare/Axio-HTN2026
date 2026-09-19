@@ -22,7 +22,7 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 
-	GLFWwindow* window = glfwCreateWindow(640, 480, "Axio", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(3 * 640, 3 * 480, "Axio", NULL, NULL);
 	if (!window)
 	{
 		throw std::runtime_error("Failed to create window!\n");
@@ -69,13 +69,24 @@ int main()
 		ImGui::NewFrame();
 
 
-		
+		ImGui::DockSpaceOverViewport();
+
+		ImGui::BeginMainMenuBar();
+
+		ImGui::EndMainMenuBar();
 
 		{
 			ImGui::Begin("Test...");
 
 			ImGui::End();
 		}
+
+		{
+			ImGui::Begin("Viewport");
+			ImGui::End();
+		}
+
+
 
 		
 

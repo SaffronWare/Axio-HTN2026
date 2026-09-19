@@ -8,6 +8,8 @@
 #include <stdexcept>
 
 
+namespace ed = ax::NodeEditor;
+
 void processInput(GLFWwindow* window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -61,6 +63,10 @@ int main()
 
 	glViewport(0, 0, 640, 480);
 
+	ax::NodeEditor::Config config;
+	config.SettingsFile = "Simple.json";
+	ax::NodeEditor::EditorContext* m_Context = ax::NodeEditor::CreateEditor(&config);
+
 	while (!glfwWindowShouldClose(window))
 	{
 		processInput(window);
@@ -81,6 +87,23 @@ int main()
 
 		if (ImGui::Begin("Node Editor")) {
 
+			ed::SetCurrentEditor(m_Context);
+			ed::Begin("My Editor", ImVec2(0.0, 0.0f));
+			int uniqueId = 1;
+			// Start drawing nodes.
+			ed::BeginNode(uniqueId++);
+			ImGui::Text("Node A");
+			ed::BeginPin(uniqueId++, ed::PinKind::Input);
+			ImGui::Text("-> In");
+			ed::EndPin();
+			ImGui::SameLine();
+			ed::BeginPin(uniqueId++, ed::PinKind::Output);
+			ImGui::Text("Out ->");
+			ed::EndPin();
+			ed::EndNode();
+			ed::End();
+			ed::SetCurrentEditor(nullptr);
+
 			ImGui::End();
 		}
 
@@ -89,7 +112,7 @@ int main()
 			ImGui::End();
 		}
 
-
+		
 
 		
 
@@ -107,10 +130,13 @@ int main()
 			glfwMakeContextCurrent(backup_current_context);
 		}
 
+		
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	ax::NodeEditor::DestroyEditor(m_Context);
 
 	glfwTerminate();
 	return 0;

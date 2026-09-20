@@ -22,6 +22,14 @@ enum class PinData
 	Vec2
 };
 
+enum class NodeType
+{
+	Input,
+	Output,
+	Sphere,
+	Add
+};
+
 struct Node;
 
 struct Pin
@@ -41,6 +49,8 @@ struct Node
 	ed::NodeId uniqueId;
 
 	std::string name;
+
+	NodeType type;
 
 	std::vector<Pin> inputs;
 	std::vector<Pin> outputs;

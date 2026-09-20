@@ -67,6 +67,7 @@ public:
 	int GetNextNodeEditorId();
 
 	Node* AddNode(
+		NodeType type,
 		const std::string& name,
 		const std::vector<std::pair<std::string, PinData>>& inputs,
 		const std::vector<std::pair<std::string, PinData>>& outputs

@@ -6,6 +6,14 @@
 #include <imgui_node_editor.h>
 
 #include <stdexcept>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <filesystem>
+#include <vector>
+
+
 
 
 
@@ -22,6 +30,14 @@ private:
 
 	int viewportWidth = 800;
 	int viewportHeight = 600;
+
+	float cameraPosition[3] = { 0.0f, 0.0f, 3.0f };
+
+	float cameraFront[3] = { 0.0f, 0.0f, -1.0f };
+	float cameraRight[3] = { 1.0f, 0.0f, 0.0f };
+	float cameraUp[3] = { 0.0f, 1.0f, 0.0f };
+
+	float focalLength = 1.0f;
 
 public:
 	Application();

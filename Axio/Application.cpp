@@ -10,81 +10,137 @@ void processInput(GLFWwindow* window)
 	}
 }
 
-static GLuint CompileShader(GLenum type, const char* source)
+static std::string ReadFile(const char* path)
+{
+	std::ifstream in(path, std::ios::in | std::ios::binary);
+
+	if (!in)
+	{
+		throw std::runtime_error(
+			std::string("Failed to open file: ") + path
+		);
+	}
+
+	std::ostringstream ss;
+	ss << in.rdbuf();
+
+	return ss.str();
+}
+
+static GLuint CompileShader(GLenum type, const std::string& source)
 {
 	GLuint shader = glCreateShader(type);
-	glShaderSource(shader, 1, &source, nullptr);
+
+	const char* src = source.c_str();
+
+	glShaderSource(
+		shader,
+		1,
+		&src,
+		nullptr
+	);
+
 	glCompileShader(shader);
 
-	GLint success;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+	GLint success = 0;
+
+	glGetShaderiv(
+		shader,
+		GL_COMPILE_STATUS,
+		&success
+	);
 
 	if (!success)
 	{
-		char infoLog[1024];
-		glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
-		throw std::runtime_error(infoLog);
+		GLint logLength = 0;
+
+		glGetShaderiv(
+			shader,
+			GL_INFO_LOG_LENGTH,
+			&logLength
+		);
+
+		std::string log(logLength, '\0');
+
+		glGetShaderInfoLog(
+			shader,
+			logLength,
+			nullptr,
+			log.data()
+		);
+
+		glDeleteShader(shader);
+
+		throw std::runtime_error(
+			std::string("Shader compile failed:\n") + log
+		);
 	}
 
 	return shader;
 }
 
-static GLuint CreateFullscreenTriangleProgram()
+static GLuint LinkProgram(GLuint vertexShader, GLuint fragmentShader)
 {
-	const char* vertexShaderSource = R"(
-		#version 460 core
-
-		const vec2 positions[3] = vec2[](
-			vec2(-1.0, -1.0),
-			vec2( 3.0, -1.0),
-			vec2(-1.0,  3.0)
-		);
-
-		void main()
-		{
-			gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
-		}
-	)";
-
-	const char* fragmentShaderSource = R"(
-		#version 460 core
-
-		uniform vec2 resolution;
-
-		out vec4 FragColor;
-
-		void main()
-		{
-			vec2 uv = gl_FragCoord.xy / resolution;
-
-			FragColor = vec4(
-				uv.x,
-				uv.y,
-				0.4,
-				1.0
-			);
-		}
-	)";
-
-	GLuint vertexShader = CompileShader(GL_VERTEX_SHADER, vertexShaderSource);
-	GLuint fragmentShader = CompileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
-
 	GLuint program = glCreateProgram();
 
-	glAttachShader(program, vertexShader);
-	glAttachShader(program, fragmentShader);
+	glAttachShader(
+		program,
+		vertexShader
+	);
+
+	glAttachShader(
+		program,
+		fragmentShader
+	);
 
 	glLinkProgram(program);
 
-	GLint success;
-	glGetProgramiv(program, GL_LINK_STATUS, &success);
+	GLint success = 0;
+
+	glGetProgramiv(
+		program,
+		GL_LINK_STATUS,
+		&success
+	);
 
 	if (!success)
 	{
-		char infoLog[1024];
-		glGetProgramInfoLog(program, 1024, nullptr, infoLog);
-		throw std::runtime_error(infoLog);
+		GLint logLength = 0;
+
+		glGetProgramiv(
+			program,
+			GL_INFO_LOG_LENGTH,
+			&logLength
+		);
+
+		std::string log(logLength, '\0');
+
+		glGetProgramInfoLog(
+			program,
+			logLength,
+			nullptr,
+			log.data()
+		);
+
+		glDeleteProgram(program);
+
+		glDeleteShader(vertexShader);
+		glDeleteShader(fragmentShader);
+
+		throw std::runtime_error(
+			std::string("Program link failed:\n") + log
+		);
 	}
+
+	glDetachShader(
+		program,
+		vertexShader
+	);
+
+	glDetachShader(
+		program,
+		fragmentShader
+	);
 
 	glDeleteShader(vertexShader);
 	glDeleteShader(fragmentShader);
@@ -92,29 +148,83 @@ static GLuint CreateFullscreenTriangleProgram()
 	return program;
 }
 
+static GLuint CreateProgramFromFiles(
+	const char* vertexPath,
+	const char* fragmentPath
+)
+{
+	std::string vertexSource =
+		ReadFile(vertexPath);
+
+	std::string fragmentSource =
+		ReadFile(fragmentPath);
+
+	GLuint vertexShader =
+		CompileShader(
+			GL_VERTEX_SHADER,
+			vertexSource
+		);
+
+	GLuint fragmentShader =
+		CompileShader(
+			GL_FRAGMENT_SHADER,
+			fragmentSource
+		);
+
+	return LinkProgram(
+		vertexShader,
+		fragmentShader
+	);
+}
+
 Application::Application()
 {
 	InitGlfw();
+
 	CreateViewportFramebuffer();
 
-	glGenVertexArrays(1, &triangleVAO);
-	triangleProgram = CreateFullscreenTriangleProgram();
+	glGenVertexArrays(
+		1,
+		&triangleVAO
+	);
+
+	triangleProgram =
+		CreateProgramFromFiles(
+			"shaders/fullscreen.vert",
+			"shaders/raymarch.frag"
+		);
 
 	InitImGui();
 }
 
 Application::~Application()
 {
-	glDeleteProgram(triangleProgram);
-	glDeleteVertexArrays(1, &triangleVAO);
+	glDeleteProgram(
+		triangleProgram
+	);
 
-	glDeleteTextures(1, &texture);
-	glDeleteFramebuffers(1, &fbo);
+	glDeleteVertexArrays(
+		1,
+		&triangleVAO
+	);
 
-	ed::DestroyEditor(m_Context);
+	glDeleteTextures(
+		1,
+		&texture
+	);
+
+	glDeleteFramebuffers(
+		1,
+		&fbo
+	);
+
+	ed::DestroyEditor(
+		m_Context
+	);
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
+
 	ImGui::DestroyContext();
 
 	glfwDestroyWindow(window);
@@ -136,11 +246,25 @@ void Application::start()
 
 void Application::CreateViewportFramebuffer()
 {
-	glGenFramebuffers(1, &fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glGenFramebuffers(
+		1,
+		&fbo
+	);
 
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
+	glBindFramebuffer(
+		GL_FRAMEBUFFER,
+		fbo
+	);
+
+	glGenTextures(
+		1,
+		&texture
+	);
+
+	glBindTexture(
+		GL_TEXTURE_2D,
+		texture
+	);
 
 	glTexImage2D(
 		GL_TEXTURE_2D,
@@ -154,8 +278,17 @@ void Application::CreateViewportFramebuffer()
 		nullptr
 	);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(
+		GL_TEXTURE_2D,
+		GL_TEXTURE_MIN_FILTER,
+		GL_LINEAR
+	);
+
+	glTexParameteri(
+		GL_TEXTURE_2D,
+		GL_TEXTURE_MAG_FILTER,
+		GL_LINEAR
+	);
 
 	glFramebufferTexture2D(
 		GL_FRAMEBUFFER,
@@ -165,56 +298,118 @@ void Application::CreateViewportFramebuffer()
 		0
 	);
 
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	if (
+		glCheckFramebufferStatus(GL_FRAMEBUFFER)
+		!= GL_FRAMEBUFFER_COMPLETE
+		)
 	{
-		throw std::runtime_error("Framebuffer incomplete");
+		throw std::runtime_error(
+			"Framebuffer incomplete"
+		);
 	}
 
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindTexture(
+		GL_TEXTURE_2D,
+		0
+	);
+
+	glBindFramebuffer(
+		GL_FRAMEBUFFER,
+		0
+	);
 }
 
 void Application::InitGlfw()
 {
 	glfwInit();
 
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-	glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwWindowHint(
+		GLFW_OPENGL_PROFILE,
+		GLFW_OPENGL_CORE_PROFILE
+	);
 
-	window = glfwCreateWindow(3 * 640, 3 * 480, "Axio", NULL, NULL);
+	glfwWindowHint(
+		GLFW_CONTEXT_VERSION_MAJOR,
+		4
+	);
+
+	glfwWindowHint(
+		GLFW_CONTEXT_VERSION_MINOR,
+		6
+	);
+
+	glfwWindowHint(
+		GLFW_SAMPLES,
+		4
+	);
+
+	window =
+		glfwCreateWindow(
+			3 * 640,
+			3 * 480,
+			"Axio",
+			NULL,
+			NULL
+		);
 
 	if (!window)
 	{
 		glfwTerminate();
-		throw std::runtime_error("Failed to create window!\n");
+
+		throw std::runtime_error(
+			"Failed to create window!\n"
+		);
 	}
 
-	glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(
+		window
+	);
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	if (
+		!gladLoadGLLoader(
+			(GLADloadproc)glfwGetProcAddress
+		)
+		)
 	{
 		glfwTerminate();
-		throw std::runtime_error("Failed to initialize glad!\n");
+
+		throw std::runtime_error(
+			"Failed to initialize glad!\n"
+		);
 	}
 
-	glEnable(GL_MULTISAMPLE);
+	glEnable(
+		GL_MULTISAMPLE
+	);
 
-	glViewport(0, 0, 3 * 640, 3 * 480);
+	glViewport(
+		0,
+		0,
+		3 * 640,
+		3 * 480
+	);
 }
 
 void Application::InitImGui()
 {
 	IMGUI_CHECKVERSION();
+
 	ImGui::CreateContext();
 
-	ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO& io =
+		ImGui::GetIO();
 
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	io.ConfigFlags |=
+		ImGuiConfigFlags_NavEnableKeyboard;
+
+	io.ConfigFlags |=
+		ImGuiConfigFlags_NavEnableGamepad;
+
+	io.ConfigFlags |=
+		ImGuiConfigFlags_DockingEnable;
+
+	io.ConfigFlags |=
+		ImGuiConfigFlags_ViewportsEnable;
 
 	io.Fonts->AddFontFromFileTTF(
 		"C:/Windows/Fonts/segoeui.ttf",
@@ -223,7 +418,8 @@ void Application::InitImGui()
 
 	ImGui::StyleColorsDark();
 
-	ImGuiStyle& style = ImGui::GetStyle();
+	ImGuiStyle& style =
+		ImGui::GetStyle();
 
 	style.AntiAliasedLines = true;
 	style.AntiAliasedLinesUseTex = true;
@@ -232,21 +428,32 @@ void Application::InitImGui()
 	style.FrameRounding = 10.0f;
 	style.TabRounding = 10.0f;
 
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplGlfw_InitForOpenGL(
+		window,
+		true
+	);
+
 	ImGui_ImplOpenGL3_Init();
 
 	ax::NodeEditor::Config config;
-	config.SettingsFile = "Simple.json";
 
-	m_Context = ax::NodeEditor::CreateEditor(&config);
+	config.SettingsFile =
+		"Simple.json";
+
+	m_Context =
+		ax::NodeEditor::CreateEditor(
+			&config
+		);
 }
 
 void Application::Draw()
 {
-	ImGuiIO& io = ImGui::GetIO();
+	ImGuiIO& io =
+		ImGui::GetIO();
 
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
+
 	ImGui::NewFrame();
 
 	ImGui::DockSpaceOverViewport();
@@ -255,9 +462,15 @@ void Application::Draw()
 	DrawNodeEditor();
 	DrawNodeCatalogue();
 
-	if (viewportWidth > 0 && viewportHeight > 0)
+	if (
+		viewportWidth > 0 &&
+		viewportHeight > 0
+		)
 	{
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glBindFramebuffer(
+			GL_FRAMEBUFFER,
+			fbo
+		);
 
 		glViewport(
 			0,
@@ -266,21 +479,85 @@ void Application::Draw()
 			viewportHeight
 		);
 
-		glClearColor(0.02f, 0.02f, 0.025f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		glUseProgram(triangleProgram);
-
-		GLint resolutionLocation =
-			glGetUniformLocation(triangleProgram, "resolution");
-
-		glUniform2f(
-			resolutionLocation,
-			static_cast<float>(viewportWidth),
-			static_cast<float>(viewportHeight)
+		glClearColor(
+			0.02f,
+			0.02f,
+			0.025f,
+			1.0f
 		);
 
-		glBindVertexArray(triangleVAO);
+		glClear(
+			GL_COLOR_BUFFER_BIT
+		);
+
+		glUseProgram(
+			triangleProgram
+		);
+
+		glUniform2f(
+			glGetUniformLocation(
+				triangleProgram,
+				"resolution"
+			),
+			static_cast<float>(
+				viewportWidth
+				),
+			static_cast<float>(
+				viewportHeight
+				)
+		);
+
+		glUniform3f(
+			glGetUniformLocation(
+				triangleProgram,
+				"cameraPosition"
+			),
+			cameraPosition[0],
+			cameraPosition[1],
+			cameraPosition[2]
+		);
+
+		glUniform3f(
+			glGetUniformLocation(
+				triangleProgram,
+				"cameraFront"
+			),
+			cameraFront[0],
+			cameraFront[1],
+			cameraFront[2]
+		);
+
+		glUniform3f(
+			glGetUniformLocation(
+				triangleProgram,
+				"cameraRight"
+			),
+			cameraRight[0],
+			cameraRight[1],
+			cameraRight[2]
+		);
+
+		glUniform3f(
+			glGetUniformLocation(
+				triangleProgram,
+				"cameraUp"
+			),
+			cameraUp[0],
+			cameraUp[1],
+			cameraUp[2]
+		);
+
+		glUniform1f(
+			glGetUniformLocation(
+				triangleProgram,
+				"focalLength"
+			),
+			focalLength
+		);
+
+		glBindVertexArray(
+			triangleVAO
+		);
 
 		glDrawArrays(
 			GL_TRIANGLES,
@@ -288,16 +565,24 @@ void Application::Draw()
 			3
 		);
 
-		glBindVertexArray(0);
-		glUseProgram(0);
+		glBindVertexArray(
+			0
+		);
 
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glUseProgram(
+			0
+		);
+
+		glBindFramebuffer(
+			GL_FRAMEBUFFER,
+			0
+		);
 	}
 
 	ImGui::Render();
 
-	int width;
-	int height;
+	int width = 0;
+	int height = 0;
 
 	glfwGetFramebufferSize(
 		window,
@@ -312,35 +597,57 @@ void Application::Draw()
 		height
 	);
 
-	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(
+		0.2f,
+		0.3f,
+		0.3f,
+		1.0f
+	);
+
+	glClear(
+		GL_COLOR_BUFFER_BIT
+	);
 
 	ImGui_ImplOpenGL3_RenderDrawData(
 		ImGui::GetDrawData()
 	);
 
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	if (
+		io.ConfigFlags &
+		ImGuiConfigFlags_ViewportsEnable
+		)
 	{
-		GLFWwindow* backup_current_context =
+		GLFWwindow* backupCurrentContext =
 			glfwGetCurrentContext();
 
 		ImGui::UpdatePlatformWindows();
+
 		ImGui::RenderPlatformWindowsDefault();
 
 		glfwMakeContextCurrent(
-			backup_current_context
+			backupCurrentContext
 		);
 	}
 }
 
 void Application::DrawViewport()
 {
-	ImGui::Begin("Viewport");
+	ImGui::Begin(
+		"Viewport"
+	);
 
-	ImVec2 size = ImGui::GetContentRegionAvail();
+	ImVec2 size =
+		ImGui::GetContentRegionAvail();
 
-	int newWidth = static_cast<int>(size.x);
-	int newHeight = static_cast<int>(size.y);
+	int newWidth =
+		static_cast<int>(
+			size.x
+			);
+
+	int newHeight =
+		static_cast<int>(
+			size.y
+			);
 
 	if (
 		newWidth > 0 &&
@@ -351,8 +658,11 @@ void Application::DrawViewport()
 			)
 		)
 	{
-		viewportWidth = newWidth;
-		viewportHeight = newHeight;
+		viewportWidth =
+			newWidth;
+
+		viewportHeight =
+			newHeight;
 
 		glBindTexture(
 			GL_TEXTURE_2D,
@@ -377,7 +687,10 @@ void Application::DrawViewport()
 		);
 	}
 
-	if (size.x > 0.0f && size.y > 0.0f)
+	if (
+		size.x > 0.0f &&
+		size.y > 0.0f
+		)
 	{
 		ImGui::Image(
 			(ImTextureID)(intptr_t)texture,
@@ -392,29 +705,43 @@ void Application::DrawViewport()
 
 void Application::DrawNodeEditor()
 {
-	bool visible = ImGui::Begin("Node Editor");
+	bool visible =
+		ImGui::Begin(
+			"Node Editor"
+		);
 
 	if (visible)
 	{
-		ed::SetCurrentEditor(m_Context);
+		ed::SetCurrentEditor(
+			m_Context
+		);
 
 		ed::Begin(
 			"My Editor",
-			ImVec2(0.0f, 0.0f)
+			ImVec2(
+				0.0f,
+				0.0f
+			)
 		);
 
 		int uniqueId = 1;
 
-		ed::BeginNode(uniqueId++);
+		ed::BeginNode(
+			uniqueId++
+		);
 
-		ImGui::Text("Node A");
+		ImGui::Text(
+			"Node A"
+		);
 
 		ed::BeginPin(
 			uniqueId++,
 			ed::PinKind::Input
 		);
 
-		ImGui::Text("-> In");
+		ImGui::Text(
+			"-> In"
+		);
 
 		ed::EndPin();
 
@@ -425,7 +752,9 @@ void Application::DrawNodeEditor()
 			ed::PinKind::Output
 		);
 
-		ImGui::Text("Out ->");
+		ImGui::Text(
+			"Out ->"
+		);
 
 		ed::EndPin();
 
@@ -433,7 +762,9 @@ void Application::DrawNodeEditor()
 
 		ed::End();
 
-		ed::SetCurrentEditor(nullptr);
+		ed::SetCurrentEditor(
+			nullptr
+		);
 	}
 
 	ImGui::End();

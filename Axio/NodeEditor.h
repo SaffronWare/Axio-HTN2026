@@ -1,5 +1,8 @@
+#pragma once
+
 #include <imgui.h>
 #include <imgui_node_editor.h>
+
 #include <string>
 #include <vector>
 
@@ -24,17 +27,19 @@ struct Node;
 struct Pin
 {
 	ed::PinId uniqueId;
+
 	Node* node = nullptr;
 
 	std::string name;
+
 	PinType type;
 	PinData data;
-
 };
 
 struct Node
 {
 	ed::NodeId uniqueId;
+
 	std::string name;
 
 	std::vector<Pin> inputs;
@@ -44,7 +49,7 @@ struct Node
 struct Link
 {
 	ed::LinkId uniqueId;
-	
-	Pin inputPin;
-	Pin outputPin;
+
+	ed::PinId inputPin;
+	ed::PinId outputPin;
 };

@@ -705,71 +705,249 @@ void Application::DrawViewport()
 
 void Application::DrawNodeEditor()
 {
-	bool visible =
-		ImGui::Begin(
-			"Node Editor"
-		);
+	bool visible = ImGui::Begin("Node Editor");
 
-	if (visible)
+	if (!visible)
 	{
-		ed::SetCurrentEditor(
-			m_Context
-		);
+		ImGui::End();
+		return;
+	}
 
-		ed::Begin(
-			"My Editor",
-			ImVec2(
-				0.0f,
-				0.0f
-			)
-		);
+	ed::SetCurrentEditor(m_Context);
 
-		int uniqueId = 1;
+	ed::Begin(
+		"My Editor",
+		ImVec2(0.0f, 0.0f)
+	);
 
-		ed::BeginNode(
-			uniqueId++
-		);
+	for (auto& node : nodes)
+	{
+		ed::BeginNode(node.uniqueId);
 
 		ImGui::Text(
-			"Node A"
+			"%s",
+			node.name.c_str()
 		);
 
-		ed::BeginPin(
-			uniqueId++,
-			ed::PinKind::Input
-		);
+		for (auto& input : node.inputs)
+		{
+			ed::BeginPin(
+				input.uniqueId,
+				ed::PinKind::Input
+			);
 
-		ImGui::Text(
-			"-> In"
-		);
+			ImGui::Text(
+				"-> %s",
+				input.name.c_str()
+			);
 
-		ed::EndPin();
+			ed::EndPin();
+		}
 
-		ImGui::SameLine();
+		for (auto& output : node.outputs)
+		{
+			ed::BeginPin(
+				output.uniqueId,
+				ed::PinKind::Output
+			);
 
-		ed::BeginPin(
-			uniqueId++,
-			ed::PinKind::Output
-		);
+			ImGui::Text(
+				"%s ->",
+				output.name.c_str()
+			);
 
-		ImGui::Text(
-			"Out ->"
-		);
-
-		ed::EndPin();
+			ed::EndPin();
+		}
 
 		ed::EndNode();
-
-		ed::End();
-
-		ed::SetCurrentEditor(
-			nullptr
-		);
 	}
+
+	ImVec2 popupPosition = ImGui::GetMousePos();
+
+	ed::Suspend();
+
+	if (ed::ShowBackgroundContextMenu())
+	{
+		ImGui::OpenPopup("Create Node");
+	}
+
+	ed::Resume();
+
+	ed::Suspend();
+
+	if (ImGui::BeginPopup("Create Node"))
+	{
+		if (ImGui::MenuItem("Sphere"))
+		{
+			Node* node = AddNode(
+				"Sphere",
+				{
+					{ "Position", PinData::Vec3 },
+					{ "Radius", PinData::Float }
+				},
+				{
+					{ "Distance", PinData::Float }
+				}
+			);
+
+			ed::SetNodePosition(
+				node->uniqueId,
+				ed::ScreenToCanvas(popupPosition)
+			);
+		}
+
+		if (ImGui::MenuItem("Add"))
+		{
+			Node* node = AddNode(
+				"Add",
+				{
+					{ "A", PinData::Float },
+					{ "B", PinData::Float }
+				},
+				{
+					{ "Result", PinData::Float }
+				}
+			);
+
+			ed::SetNodePosition(
+				node->uniqueId,
+				ed::ScreenToCanvas(popupPosition)
+			);
+		}
+
+		if (ImGui::MenuItem("Output"))
+		{
+			Node* node = AddNode(
+				"Output",
+				{
+					{ "Distance", PinData::Float }
+				},
+				{}
+			);
+
+			ed::SetNodePosition(
+				node->uniqueId,
+				ed::ScreenToCanvas(popupPosition)
+			);
+		}
+
+		ImGui::EndPopup();
+	}
+
+	ed::Resume();
+
+	ed::End();
+
+	ed::SetCurrentEditor(nullptr);
 
 	ImGui::End();
 }
 
 void Application::DrawNodeCatalogue()
 {
+}
+
+int Application::GetNextNodeEditorId()
+{
+	return nextNodeEditorId++;
+}
+
+Node* Application::AddNode(
+	const std::string& name,
+	const std::vector<std::pair<std::string, PinData>>& inputs,
+	const std::vector<std::pair<std::string, PinData>>& outputs
+)
+{
+	nodes.push_back(Node{});
+
+	Node& node = nodes.back();
+
+	node.uniqueId = ed::NodeId(
+		GetNextNodeEditorId()
+	);
+
+	node.name = name;
+
+	for (const auto& input : inputs)
+	{
+		Pin pin;
+
+		pin.uniqueId =
+			ed::PinId(
+				GetNextNodeEditorId()
+			);
+
+		pin.node = &node;
+		pin.name = input.first;
+		pin.type = PinType::Input;
+		pin.data = input.second;
+
+		node.inputs.push_back(
+			pin
+		);
+	}
+
+	for (const auto& output : outputs)
+	{
+		Pin pin;
+
+		pin.uniqueId =
+			ed::PinId(
+				GetNextNodeEditorId()
+			);
+
+		pin.node = &node;
+		pin.name = output.first;
+		pin.type = PinType::Output;
+		pin.data = output.second;
+
+		node.outputs.push_back(
+			pin
+		);
+	}
+
+	return &node;
+}
+
+Pin* Application::FindPin(ed::PinId id)
+{
+	for (auto& node : nodes)
+	{
+		for (auto& pin : node.inputs)
+		{
+			if (pin.uniqueId == id)
+				return &pin;
+		}
+
+		for (auto& pin : node.outputs)
+		{
+			if (pin.uniqueId == id)
+				return &pin;
+		}
+	}
+
+	return nullptr;
+}
+
+bool Application::CanCreateLink(
+	Pin* a,
+	Pin* b
+)
+{
+	if (!a || !b)
+		return false;
+
+	if (a == b)
+		return false;
+
+	if (a->node == b->node)
+		return false;
+
+	if (a->type == b->type)
+		return false;
+
+	if (a->data != b->data)
+		return false;
+
+	return true;
 }

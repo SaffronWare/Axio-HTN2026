@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <vector>
 
+#include "NodeEditor.h"
 
 
 
@@ -40,6 +41,8 @@ private:
 	float focalLength = 1.0f;
 
 public:
+
+
 	Application();
 	~Application();
 
@@ -55,4 +58,21 @@ public:
 	void DrawViewport();
 	void DrawNodeEditor();
 	void DrawNodeCatalogue();
+
+	std::vector<Node> nodes;
+	std::vector<Link> links;
+
+	int nextNodeEditorId = 1;
+
+	int GetNextNodeEditorId();
+
+	Node* AddNode(
+		const std::string& name,
+		const std::vector<std::pair<std::string, PinData>>& inputs,
+		const std::vector<std::pair<std::string, PinData>>& outputs
+	);
+
+	Pin* FindPin(ed::PinId id);
+
+	bool CanCreateLink(Pin* a, Pin* b);
 };

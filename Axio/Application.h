@@ -14,7 +14,11 @@ struct Application
 private:
 	GLFWwindow* window;
 	ax::NodeEditor::EditorContext* m_Context;
-
+	GLuint texture;
+	GLuint rbo;
+	GLuint fbo;
+	GLuint triangleVAO = 0;
+	GLuint triangleProgram = 0;
 
 public:
 	Application();
@@ -24,6 +28,9 @@ public:
 
 	void InitGlfw();
 	void InitImGui();
+
+	void CreateViewportFramebuffer();
+	void RecViewportTex();
 
 	void Draw();
 	void DrawViewport();

@@ -10,20 +10,114 @@ void processInput(GLFWwindow* window)
 	}
 }
 
+static GLuint CompileShader(GLenum type, const char* source)
+{
+	GLuint shader = glCreateShader(type);
+	glShaderSource(shader, 1, &source, nullptr);
+	glCompileShader(shader);
+
+	GLint success;
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+
+	if (!success)
+	{
+		char infoLog[1024];
+		glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
+		throw std::runtime_error(infoLog);
+	}
+
+	return shader;
+}
+
+static GLuint CreateFullscreenTriangleProgram()
+{
+	const char* vertexShaderSource = R"(
+		#version 460 core
+
+		const vec2 positions[3] = vec2[](
+			vec2(-1.0, -1.0),
+			vec2( 3.0, -1.0),
+			vec2(-1.0,  3.0)
+		);
+
+		void main()
+		{
+			gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+		}
+	)";
+
+	const char* fragmentShaderSource = R"(
+		#version 460 core
+
+		out vec4 FragColor;
+
+		void main()
+		{
+			vec2 uv = gl_FragCoord.xy / vec2(800.0, 600.0);
+
+			FragColor = vec4(
+				uv.x,
+				uv.y,
+				0.4,
+				1.0
+			);
+		}
+	)";
+
+	GLuint vertexShader = CompileShader(GL_VERTEX_SHADER, vertexShaderSource);
+	GLuint fragmentShader = CompileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+
+	GLuint program = glCreateProgram();
+
+	glAttachShader(program, vertexShader);
+	glAttachShader(program, fragmentShader);
+
+	glLinkProgram(program);
+
+	GLint success;
+	glGetProgramiv(program, GL_LINK_STATUS, &success);
+
+	if (!success)
+	{
+		char infoLog[1024];
+		glGetProgramInfoLog(program, 1024, nullptr, infoLog);
+		throw std::runtime_error(infoLog);
+	}
+
+	glDeleteShader(vertexShader);
+	glDeleteShader(fragmentShader);
+
+	return program;
+}
+
 Application::Application()
 {
 	InitGlfw();
+	CreateViewportFramebuffer();
+
+	glGenVertexArrays(1, &triangleVAO);
+	triangleProgram = CreateFullscreenTriangleProgram();
+
 	InitImGui();
 }
 
 Application::~Application()
 {
+	glDeleteProgram(triangleProgram);
+	glDeleteVertexArrays(1, &triangleVAO);
+
+	glDeleteTextures(1, &texture);
+	glDeleteFramebuffers(1, &fbo);
+
 	ed::DestroyEditor(m_Context);
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
 }
-
 
 void Application::start()
 {
@@ -38,45 +132,82 @@ void Application::start()
 	}
 }
 
+void Application::CreateViewportFramebuffer()
+{
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-void Application::InitGlfw() {
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_RGB,
+		800,
+		600,
+		0,
+		GL_RGB,
+		GL_UNSIGNED_BYTE,
+		nullptr
+	);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glFramebufferTexture2D(
+		GL_FRAMEBUFFER,
+		GL_COLOR_ATTACHMENT0,
+		GL_TEXTURE_2D,
+		texture,
+		0
+	);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		throw std::runtime_error("Framebuffer incomplete");
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Application::InitGlfw()
+{
 	glfwInit();
+
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-	//glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WIN32);
-	//glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
 	window = glfwCreateWindow(3 * 640, 3 * 480, "Axio", NULL, NULL);
+
 	if (!window)
 	{
-		throw std::runtime_error("Failed to create window!\n");
 		glfwTerminate();
-
+		throw std::runtime_error("Failed to create window!\n");
 	}
 
 	glfwMakeContextCurrent(window);
 
-
-
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
-		throw std::runtime_error("Failed to intialize glad!\n");
 		glfwTerminate();
-
+		throw std::runtime_error("Failed to initialize glad!\n");
 	}
+
 	glEnable(GL_MULTISAMPLE);
 
-	glViewport(0, 0, 3 * 640,  3 * 480);
+	glViewport(0, 0, 3 * 640, 3 * 480);
 }
-
 
 void Application::InitImGui()
 {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+	ImGuiIO& io = ImGui::GetIO();
+
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -89,9 +220,8 @@ void Application::InitImGui()
 
 	ImGui::StyleColorsDark();
 
-
-	// Setup scaling
 	ImGuiStyle& style = ImGui::GetStyle();
+
 	style.AntiAliasedLines = true;
 	style.AntiAliasedLinesUseTex = true;
 	style.AntiAliasedFill = true;
@@ -102,22 +232,36 @@ void Application::InitImGui()
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init();
 
-	
-
 	ax::NodeEditor::Config config;
 	config.SettingsFile = "Simple.json";
+
 	m_Context = ax::NodeEditor::CreateEditor(&config);
 }
 
-
 void Application::Draw()
 {
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+	glViewport(0, 0, 800, 600);
+
+	glClearColor(0.02f, 0.02f, 0.025f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glUseProgram(triangleProgram);
+	glBindVertexArray(triangleVAO);
+
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+	glBindVertexArray(0);
+	glUseProgram(0);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	ImGuiIO& io = ImGui::GetIO();
 
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-
 
 	ImGui::DockSpaceOverViewport();
 
@@ -127,51 +271,77 @@ void Application::Draw()
 
 	ImGui::Render();
 
-	glClearColor(0.2f, 0.3f, 0.3f, 1.0f); 
-	glClear(GL_COLOR_BUFFER_BIT); 
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData()); 
-	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) 
-	{ 
-		GLFWwindow* backup_current_context = glfwGetCurrentContext(); 
-		ImGui::UpdatePlatformWindows(); 
-		ImGui::RenderPlatformWindowsDefault(); glfwMakeContextCurrent(backup_current_context); }
-}
+	int width;
+	int height;
 
+	glfwGetFramebufferSize(window, &width, &height);
 
-void Application::DrawViewport() {
-	if (ImGui::Begin("Viewport"))
+	glViewport(0, 0, width, height);
+
+	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
-		ImGui::End();
+		GLFWwindow* backup_current_context = glfwGetCurrentContext();
+
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+
+		glfwMakeContextCurrent(backup_current_context);
 	}
 }
 
+void Application::DrawViewport()
+{
+	ImGui::Begin("Viewport");
+
+	ImGui::Image(
+		(ImTextureID)(intptr_t)texture,
+		ImGui::GetContentRegionAvail(),
+		ImVec2(0, 1),
+		ImVec2(1, 0)
+	);
+
+	ImGui::End();
+}
 
 void Application::DrawNodeEditor()
 {
-	if (ImGui::Begin("Node Editor")) {
-
+	if (ImGui::Begin("Node Editor"))
+	{
 		ed::SetCurrentEditor(m_Context);
-		ed::Begin("My Editor", ImVec2(0.0, 0.0f));
+
+		ed::Begin("My Editor", ImVec2(0.0f, 0.0f));
+
 		int uniqueId = 1;
 
 		ed::BeginNode(uniqueId++);
+
 		ImGui::Text("Node A");
+
 		ed::BeginPin(uniqueId++, ed::PinKind::Input);
 		ImGui::Text("-> In");
 		ed::EndPin();
+
 		ImGui::SameLine();
+
 		ed::BeginPin(uniqueId++, ed::PinKind::Output);
 		ImGui::Text("Out ->");
 		ed::EndPin();
-		ed::EndNode();
-		ed::End();
-		ed::SetCurrentEditor(nullptr);
 
-		ImGui::End();
+		ed::EndNode();
+
+		ed::End();
+
+		ed::SetCurrentEditor(nullptr);
 	}
+
+	ImGui::End();
 }
 
 void Application::DrawNodeCatalogue()
 {
-
 }

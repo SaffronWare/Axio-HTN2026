@@ -20,6 +20,9 @@ private:
 	GLuint triangleVAO = 0;
 	GLuint triangleProgram = 0;
 
+	int viewportWidth = 800;
+	int viewportHeight = 600;
+
 public:
 	Application();
 	~Application();

@@ -49,11 +49,13 @@ static GLuint CreateFullscreenTriangleProgram()
 	const char* fragmentShaderSource = R"(
 		#version 460 core
 
+		uniform vec2 resolution;
+
 		out vec4 FragColor;
 
 		void main()
 		{
-			vec2 uv = gl_FragCoord.xy / vec2(800.0, 600.0);
+			vec2 uv = gl_FragCoord.xy / resolution;
 
 			FragColor = vec4(
 				uv.x,
@@ -144,8 +146,8 @@ void Application::CreateViewportFramebuffer()
 		GL_TEXTURE_2D,
 		0,
 		GL_RGB,
-		800,
-		600,
+		viewportWidth,
+		viewportHeight,
 		0,
 		GL_RGB,
 		GL_UNSIGNED_BYTE,
@@ -168,6 +170,7 @@ void Application::CreateViewportFramebuffer()
 		throw std::runtime_error("Framebuffer incomplete");
 	}
 
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -240,23 +243,6 @@ void Application::InitImGui()
 
 void Application::Draw()
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-	glViewport(0, 0, 800, 600);
-
-	glClearColor(0.02f, 0.02f, 0.025f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	glUseProgram(triangleProgram);
-	glBindVertexArray(triangleVAO);
-
-	glDrawArrays(GL_TRIANGLES, 0, 3);
-
-	glBindVertexArray(0);
-	glUseProgram(0);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 	ImGuiIO& io = ImGui::GetIO();
 
 	ImGui_ImplOpenGL3_NewFrame();
@@ -269,28 +255,81 @@ void Application::Draw()
 	DrawNodeEditor();
 	DrawNodeCatalogue();
 
+	if (viewportWidth > 0 && viewportHeight > 0)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+		glViewport(
+			0,
+			0,
+			viewportWidth,
+			viewportHeight
+		);
+
+		glClearColor(0.02f, 0.02f, 0.025f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glUseProgram(triangleProgram);
+
+		GLint resolutionLocation =
+			glGetUniformLocation(triangleProgram, "resolution");
+
+		glUniform2f(
+			resolutionLocation,
+			static_cast<float>(viewportWidth),
+			static_cast<float>(viewportHeight)
+		);
+
+		glBindVertexArray(triangleVAO);
+
+		glDrawArrays(
+			GL_TRIANGLES,
+			0,
+			3
+		);
+
+		glBindVertexArray(0);
+		glUseProgram(0);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
 	ImGui::Render();
 
 	int width;
 	int height;
 
-	glfwGetFramebufferSize(window, &width, &height);
+	glfwGetFramebufferSize(
+		window,
+		&width,
+		&height
+	);
 
-	glViewport(0, 0, width, height);
+	glViewport(
+		0,
+		0,
+		width,
+		height
+	);
 
 	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	ImGui_ImplOpenGL3_RenderDrawData(
+		ImGui::GetDrawData()
+	);
 
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 	{
-		GLFWwindow* backup_current_context = glfwGetCurrentContext();
+		GLFWwindow* backup_current_context =
+			glfwGetCurrentContext();
 
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 
-		glfwMakeContextCurrent(backup_current_context);
+		glfwMakeContextCurrent(
+			backup_current_context
+		);
 	}
 }
 
@@ -298,23 +337,71 @@ void Application::DrawViewport()
 {
 	ImGui::Begin("Viewport");
 
-	ImGui::Image(
-		(ImTextureID)(intptr_t)texture,
-		ImGui::GetContentRegionAvail(),
-		ImVec2(0, 1),
-		ImVec2(1, 0)
-	);
+	ImVec2 size = ImGui::GetContentRegionAvail();
+
+	int newWidth = static_cast<int>(size.x);
+	int newHeight = static_cast<int>(size.y);
+
+	if (
+		newWidth > 0 &&
+		newHeight > 0 &&
+		(
+			newWidth != viewportWidth ||
+			newHeight != viewportHeight
+			)
+		)
+	{
+		viewportWidth = newWidth;
+		viewportHeight = newHeight;
+
+		glBindTexture(
+			GL_TEXTURE_2D,
+			texture
+		);
+
+		glTexImage2D(
+			GL_TEXTURE_2D,
+			0,
+			GL_RGB,
+			viewportWidth,
+			viewportHeight,
+			0,
+			GL_RGB,
+			GL_UNSIGNED_BYTE,
+			nullptr
+		);
+
+		glBindTexture(
+			GL_TEXTURE_2D,
+			0
+		);
+	}
+
+	if (size.x > 0.0f && size.y > 0.0f)
+	{
+		ImGui::Image(
+			(ImTextureID)(intptr_t)texture,
+			size,
+			ImVec2(0, 1),
+			ImVec2(1, 0)
+		);
+	}
 
 	ImGui::End();
 }
 
 void Application::DrawNodeEditor()
 {
-	if (ImGui::Begin("Node Editor"))
+	bool visible = ImGui::Begin("Node Editor");
+
+	if (visible)
 	{
 		ed::SetCurrentEditor(m_Context);
 
-		ed::Begin("My Editor", ImVec2(0.0f, 0.0f));
+		ed::Begin(
+			"My Editor",
+			ImVec2(0.0f, 0.0f)
+		);
 
 		int uniqueId = 1;
 
@@ -322,14 +409,24 @@ void Application::DrawNodeEditor()
 
 		ImGui::Text("Node A");
 
-		ed::BeginPin(uniqueId++, ed::PinKind::Input);
+		ed::BeginPin(
+			uniqueId++,
+			ed::PinKind::Input
+		);
+
 		ImGui::Text("-> In");
+
 		ed::EndPin();
 
 		ImGui::SameLine();
 
-		ed::BeginPin(uniqueId++, ed::PinKind::Output);
+		ed::BeginPin(
+			uniqueId++,
+			ed::PinKind::Output
+		);
+
 		ImGui::Text("Out ->");
+
 		ed::EndPin();
 
 		ed::EndNode();

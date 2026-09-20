@@ -190,8 +190,8 @@ Application::Application()
 
 	triangleProgram =
 		CreateProgramFromFiles(
-			"shaders/fullscreen.vert",
-			"shaders/raymarch.frag"
+			"C:/Users/aryan/source/repos/Axio/Axio/shaders/vert.glsl",
+			"C:/Users/aryan/source/repos/Axio/Axio/shaders/frag.glsl"
 		);
 
 	InitImGui();
